@@ -392,7 +392,7 @@ request_init(FakeSocket, Peer, OnResponse,
 	Version2 = cow_http:parse_version(Version),
 	Req = cowboy_req:new(FakeSocket, ?MODULE, Peer,
 		Method, Path2, Qs, Version2, Headers,
-		Host2, Port, <<>>, true, false, OnResponse),
+		Host2, Port, <<>>, true, false, OnResponse, <<>>),
 	execute(Req, Env, Middlewares).
 
 -spec execute(cowboy_req:req(), cowboy_middleware:env(), [module()])

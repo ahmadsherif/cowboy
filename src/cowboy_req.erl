@@ -16,7 +16,7 @@
 -module(cowboy_req).
 
 %% Request API.
--export([new/14]).
+-export([new/15]).
 -export([method/1]).
 -export([version/1]).
 -export([peer/1]).
@@ -43,6 +43,7 @@
 -export([meta/2]).
 -export([meta/3]).
 -export([set_meta/3]).
+-export([raw/1]).
 
 %% Request body API.
 -export([has_body/1]).
@@ -125,6 +126,7 @@
 	bindings = undefined :: undefined | cowboy_router:bindings(),
 	headers = [] :: cowboy:http_headers(),
 	meta = [] :: [{atom(), any()}],
+	raw = undefined :: binary(),
 
 	%% Request body.
 	body_state = waiting :: waiting | done | {stream, non_neg_integer(),
@@ -156,15 +158,15 @@
 	binary(), binary(), binary(),
 	cowboy:http_version(), cowboy:http_headers(), binary(),
 	inet:port_number() | undefined, binary(), boolean(), boolean(),
-	undefined | cowboy:onresponse_fun())
+	undefined | cowboy:onresponse_fun(), binary())
 	-> req().
 new(Socket, Transport, Peer, Method, Path, Query,
 		Version, Headers, Host, Port, Buffer, CanKeepalive,
-		Compress, OnResponse) ->
+		Compress, OnResponse, RawRequest) ->
 	Req = #http_req{socket=Socket, transport=Transport, pid=self(), peer=Peer,
 		method=Method, path=Path, qs=Query, version=Version,
 		headers=Headers, host=Host, port=Port, buffer=Buffer,
-		resp_compress=Compress, onresponse=OnResponse},
+		resp_compress=Compress, onresponse=OnResponse, raw=RawRequest},
 	case CanKeepalive of
 		false ->
 			Req#http_req{connection=close};
@@ -351,6 +353,13 @@ meta(Name, Req, Default) ->
 set_meta(Name, Value, Req=#http_req{meta=Meta}) ->
 	Req#http_req{meta=lists:keystore(Name, 1, Meta, {Name, Value})}.
 
+-spec raw(req()) -> {ok, binary(), Req} when Req::req().
+raw(Req=#http_req{body_state=waiting}) ->
+	{ok, _, Req2} = body(Req),
+	raw(Req2);
+raw(Req=#http_req{raw=Raw}) ->
+	{ok, Raw, Req}.
+
 %% Request Body API.
 
 -spec has_body(req()) -> boolean().
@@ -459,10 +468,11 @@ body_loop(Req=#http_req{buffer=Buffer, body_state={stream, Length, _, _, _}},
 			end
 	end.
 
-body_recv(Req=#http_req{transport=Transport, socket=Socket, buffer=Buffer},
+body_recv(Req=#http_req{transport=Transport, socket=Socket, buffer=Buffer, raw=Raw},
 		ReadTimeout, ReadLength) ->
 	{ok, Data} = Transport:recv(Socket, ReadLength, ReadTimeout),
-	body_decode(Req#http_req{buffer= << Buffer/binary, Data/binary >>}, ReadTimeout).
+	body_decode(Req#http_req{buffer= << Buffer/binary, Data/binary >>,
+				raw= << Raw/binary, Data/binary >>}, ReadTimeout).
 
 %% Two decodings happen. First a decoding function is applied to the
 %% transferred data, and then another is applied to the actual content.
