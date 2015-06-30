@@ -520,7 +520,7 @@ next_request(Req, State=#state{req_keepalive=Keepalive, timeout=Timeout},
 					receive {cowboy_req, resp_sent} -> ok after 0 -> ok end,
 					?MODULE:parse_request(Buffer,
 						State#state{req_keepalive=Keepalive + 1,
-						until=until(Timeout)}, 0);
+						until=until(Timeout), raw_request=Buffer}, 0);
 				true ->
 					terminate(State)
 			end
