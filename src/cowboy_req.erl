@@ -355,7 +355,7 @@ set_meta(Name, Value, Req=#http_req{meta=Meta}) ->
 
 -spec raw(req()) -> {ok, binary(), Req} when Req::req().
 raw(Req=#http_req{body_state=waiting}) ->
-	{ok, _, Req2} = body(Req),
+	{ok, _, Req2} = body(Req, [{read_timeout, 60000}]),
 	raw(Req2);
 raw(Req=#http_req{raw=Raw}) ->
 	{ok, Raw, Req}.
